@@ -57,18 +57,14 @@
 
 
     echo "Importing narozeni"
-    #docker cp /app/Data/narozeni_upravena.csv router-01:/tmp/narozeni_upravena.csv
     docker exec router-01 mongoimport --username admin --password admin --authenticationDatabase admin --db mojedb --collection narozeni --type csv --headerline --file /Data/narozeni_upravena.csv
     
     echo "Importing nadeje"
-    #docker cp ../Data/nadeje.csv router-01:/tmp/nadeje.csv
     docker exec router-01 mongoimport --username admin --password admin --authenticationDatabase admin --db mojedb --collection nadeje --type csv --headerline --file /Data/nadeje.csv
     
     echo "Importing plodnost"
-    #docker cp ../Data/plodnost_upravena.csv router-01:/tmp/plodnost_upravena.csv
     docker exec router-01 mongoimport --username admin --password admin --authenticationDatabase admin --db mojedb --collection plodnost --type csv --headerline --file /Data/plodnost_upravena.csv
 
     echo "✅ Data imported successfully."
     exit 0
     
-    docker-compose exec -T router01 mongoimport --username admin --password admin --authenticationDatabase admin --db=mojedb --collection=narozeni --type=csv --headerline --file=/Data/narozeni_upravena.csv
