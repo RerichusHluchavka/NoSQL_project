@@ -48,9 +48,9 @@
     db.createCollection("plodnost");
 
     // Shard collections
-    sh.shardCollection("mojedb.narozeni", { "Uz01A": 1, "Hodnota": 1 });
-    sh.shardCollection("mojedb.nadeje", { "Uz01A": 1, "Hodnota": 1 });
-    sh.shardCollection("mojedb.plodnost", { "Uz01A": 1, "Hodnota": 1 });
+    sh.shardCollection("mojedb.narozeni", {  "Hodnota": 1, "Uz01A": 1 });
+    sh.shardCollection("mojedb.nadeje", { "Hodnota": 1, "Uz01A": 1 });
+    sh.shardCollection("mojedb.plodnost", { "Hodnota": 1, "Uz01A": 1 });
     '
     echo "Database mojedb created and collections initialized."
     echo "Inserting data into collections..."
@@ -65,6 +65,9 @@
     echo "Importing plodnost"
     docker exec router-01 mongoimport --username admin --password admin --authenticationDatabase admin --db mojedb --collection plodnost --type csv --headerline --file /Data/plodnost_upravena.csv
 
+    echo "Setting chunk size to 1MB to show sharding"
+    docker exec router-01 mongosh --username admin --password admin --authenticationDatabase admin --eval 'db.getSiblingDB("config").settings.updateOne({ _id: "chunksize" }, { $set: { value: 1 } }, { upsert: true },{ upsert: true })'
     echo "✅ Data imported successfully."
     exit 0
     
+db.settings.updateOne({ _id: "chunksize" },{ $set: { _id: "chunksize", value: 1 } },{ upsert: true })
