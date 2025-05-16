@@ -194,7 +194,7 @@ echo "Importing nadeje"
 docker exec router-01 mongoimport --username admin --password admin --authenticationDatabase admin --db mojedb --collection nadeje --type csv --headerline --file /Data/nadeje_upravena.csv
 
 echo "Importing plodnost"
-docker exec router-01 mongoimport --username admin --password admin --authenticationDatabase admin --db mojedb --collection plodnost --type csv --headerline --file /Data/plodnost_upravena.csv
+docker exec router-01 mongoimport --username admin --password admin --authenticationDatabase admin --db mojedb --collection plodnost --type csv --headerline --file /Data/plodnost_upravena.csv 
 
 echo "Setting chunk size to 1MB to show sharding"
 docker exec router-01 mongosh --username admin --password admin --authenticationDatabase admin --eval 'db.getSiblingDB("config").settings.updateOne({ _id: "chunksize" }, { $set: { value: 1 } }, { upsert: true },{ upsert: true })'
