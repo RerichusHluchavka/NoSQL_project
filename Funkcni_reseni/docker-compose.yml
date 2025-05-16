@@ -210,10 +210,19 @@ services:
     container_name: init-container
     depends_on:
       - configsvr01
+      - configsvr02
+      - configsvr03
       - router01
+      - router02
       - shard01-a
       - shard01-b
       - shard01-c
+      - shard02-a
+      - shard02-b
+      - shard02-c
+      - shard03-a
+      - shard03-b
+      - shard03-c
 
     command: ["sh", "/scripts/init-cluster.sh"]
     volumes:
@@ -221,22 +230,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app
     working_dir: /app
-
-##Vlozeni dat
-##  insert-data:
-##    image: jin-mongo:8.0
-##    container_name: mongo-insert-data
-##    command: bash -c "
-##              wait-for-it auth-configsvr:27017 --timeout=60 --
-##              mongosh mongodb://router01:27017/admin -u root -p root --authenticationDatabase admin /scripts/insert-data.js"
-##    volumes:
-##      - ./scripts:/scripts
-##    depends_on:
-##      - router01
-##      - auth-configsvr
-##    restart: "no"
-##    links:
-##      - router01  
 
 volumes:
   mongodb_cluster_router01_db:
