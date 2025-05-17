@@ -8,7 +8,7 @@ Do `mongo shell`u se dá připojit pomocí:
 
     docker-compose exec router01 mongosh --port 27017 -u "admin" -p "admin" --authenticationDatabase admin
 
-Dotazy pracují s databází `mojedb` a kolekcemi `narozeni, plodnost, nadeje`.
+Dotazy většinou pracují s databází `mojedb` a kolekcemi `narozeni, plodnost, nadeje`.
 
 ## Práce s daty
 Dotazy které pracují s daty (insert, update, delete, merge)
@@ -966,7 +966,6 @@ Ukáže všechny roky, ve kterých byl globální průměr plodnosti vyšší ne
 
 Najde rok, ve kterém byl největší rozdíl mezi průměrným počtem živě narozených a mrtvě narozených dětí.
 
-    ```js
     db.prumery.aggregate([
         {
             $match: {
@@ -1011,3 +1010,119 @@ Najde rok, ve kterém byl největší rozdíl mezi průměrným počtem živě n
             }
         }
     ])
+
+## Indexy
+Dotazy které pracují s indexy
+
+### Dotaz 1
+Vytvoří složený částečný index na kolekci `narozeni`, který indexuje pole `Roky` a `IndicatorType` pouze pro dokumenty, kde je `Roky` větší nebo rovno 2018 a vypíše všechny indexy v kolekci `narozeni`:
+
+    db.narozeni.createIndex(
+        { Roky: 1, IndicatorType: 1 },
+        {
+            name: "NovyNarozeniIndex",
+            partialFilterExpression: { Roky: { $gte: 2018 } }
+        }
+    );
+
+    db.narozeni.getIndexes().forEach(idx => printjson(idx));
+
+
+
+### Dotaz 2
+Dotazy pro porovnání výkonu podobných dotazů s a bez indexu:
+
+    db.narozeni.aggregate([
+        {
+            $match: {
+                Roky: { $gte: 2010, $lte: 2014 },
+                IndicatorType: "4355ZNMM"
+            }
+        },
+        {
+            $group: {
+                _id: "$Oblast",
+                soucet: { $sum: "$Hodnota" }
+            }
+        },
+        { $sort: { soucet: 1 } },
+        { $limit: 1 }
+    ]).explain("executionStats");
+
+
+    db.narozeni.aggregate([
+        {
+            $match: {
+                Roky: { $gte: 2018, $lte: 2022 },
+                IndicatorType: "4355ZNMM"
+            }
+        },
+        {
+            $group: {
+                _id: "$Oblast",
+                soucet: { $sum: "$Hodnota" }
+            }
+        },
+        { $sort: { soucet: 1 } },
+        { $limit: 1 }
+    ]).explain("executionStats");
+
+### Dotaz 3
+
+Vytvoří index na kolekci `nadeje` pro pole `Roky` a `Pohlaví`, index pojmenuje `IndexNadejeRokPohlavi` a vypíše všechny indexy v kolekci `nadeje`:
+
+    db.nadeje.createIndex(
+        { Roky: 1, Pohlaví: 1 },
+        { name: "IndexNadejeRokPohlavi" }
+    );
+
+    db.nadeje.getIndexes().forEach(idx => printjson(idx));
+
+
+### Dotaz 4
+Využije index `IndexNadejeRokPohlavi` při dotazu na průměrnou naději dožití žen v letech 2018–2022 a zobrazí statistiky využití indexu:
+
+db.nadeje.aggregate([
+    {
+        $match: {
+            Roky: { $gte: 2018, $lte: 2022 },
+            Pohlaví: "ženy"
+        }
+    },
+    {
+        $group: {
+            _id: "$Roky",
+            prumerNadeje: { $avg: "$Hodnota" }
+        }
+    }
+]).explain("executionStats");
+
+### Dotaz 5
+
+Vytvoří index na kolekci `plodnost` pro pole `Roky` a `Věk (jednoleté skupiny)`, index pojmenuje `IndexPlodnostRokVek` a vypíše všechny indexy v kolekci `plodnost`:
+
+    db.plodnost.createIndex(
+        { Roky: 1, "Věk (jednoleté skupiny)": 1 },
+        { name: "IndexPlodnostRokVek" }
+    );
+
+    db.plodnost.getIndexes().forEach(idx => printjson(idx));
+
+### Dotaz 6
+
+Využije index `IndexPlodnostRokVek` při dotazu na průměrnou plodnost žen ve věku 25–35 let v letech 2015–2020 a zobrazí statistiky využití indexu:
+
+    db.plodnost.aggregate([
+        {
+            $match: {
+                Roky: { $gte: 2015, $lte: 2020 },
+                "Věk (jednoleté skupiny)": { $gte: 25, $lte: 35 }
+            }
+        },
+        {
+            $group: {
+                _id: "$Roky",
+                prumerPlodnosti: { $avg: "$Hodnota" }
+            }
+        }
+    ]).explain("executionStats");
