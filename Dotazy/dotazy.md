@@ -733,3 +733,281 @@ Dotazy které pracují s nested (embedded) dokumenty
 
 ### Dotaz 1
 
+Ukáže detailní informace z kolekce `plodnost` pro záznamy z roku 2020, kde je hodnota větší než globální průměr plodnosti pro daný rok (z kolekce `prumery`):
+
+    db.plodnost.aggregate([
+        {
+            $match: { Roky: 2020 }
+        },
+        {
+            $lookup: {
+                from: "prumery",
+                let: { rok: "$Roky" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: { $eq: ["$rok", "$$rok"] },
+                            globalniPrumerPlodnosti: { $exists: true }
+                        }
+                    },
+                    {
+                        $project: { globalniPrumerPlodnosti: 1, _id: 0 }
+                    }
+                ],
+                as: "prumerData"
+            }
+        },
+        {
+            $unwind: "$prumerData"
+        },
+        {
+            $match: {
+                $expr: { $gt: ["$Hodnota", "$prumerData.globalniPrumerPlodnosti"] }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                Roky: 1,
+                "Věk (jednoleté skupiny)": 1,
+                Hodnota: 1,
+                globalniPrumerPlodnosti: "$prumerData.globalniPrumerPlodnosti",
+                Oblast: 1
+            }
+        }
+    ])
+
+### Dotaz 2
+Ukáže první věkovou skupinu z každého kraje, kde je naděje dožití menší než globální průměrná naděje pro rok 2020 (z kolekce `prumery`):
+
+    db.nadeje.aggregate([
+        {
+            $match: { Roky: 2020 }
+        },
+        {
+            $lookup: {
+                from: "prumery",
+                let: { rok: "$Roky" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: { $eq: ["$rok", "$$rok"] },
+                            globalniPrumerPlodnosti: { $exists: true }
+                        }
+                    },
+                    {
+                        $project: { globalniPrumerPlodnosti: 1, _id: 0 }
+                    }
+                ],
+                as: "prumerData"
+            }
+        },
+        { $unwind: "$prumerData" },
+        {
+            $match: {
+                $expr: { $lt: ["$Hodnota", "$prumerData.globalniPrumerPlodnosti"] }
+            }
+        },
+        {
+            $sort: { Uz01A: 1, "Věk (roky)": 1 }
+        },
+        {
+            $group: {
+                _id: "$Uz01A",
+                prvniVek: { $first: "$Věk (roky)" },
+                nadeje: { $first: "$Hodnota" },
+                oblast: { $first: "$ČR, regiony" },
+                prumer: { $first: "$prumerData.globalniPrumerPlodnosti" }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                region: "$_id",
+                oblast: 1,
+                prvniVek: 1,
+                nadeje: 1,
+                globalniPrumer: "$prumer"
+            }
+        }
+    ])
+
+### Dotaz 3
+Ukáže v jakých krajích je v roce 2020 více narozených dětí s pořadím 4 a více než je průměr:
+
+    db.narozeni.aggregate([
+        {
+            $match: {
+                Roky: 2020,
+                IndicatorType: "4355WZNP4AV",
+                $expr: { $ne: ["$Uz012", "$Uz01A"] }
+            }
+        },
+        {
+            $group: {
+                _id: "$Uz012",
+                oblast: { $first: "$Oblast" },
+                pocetDeti: { $sum: "$Hodnota" }
+            }
+        },
+        {
+            $lookup: {
+                from: "prumery",
+                let: { rok: 2020 },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: { $eq: ["$rok", "$$rok"] },
+                            indikatory: { $exists: true }
+                        }
+                    },
+                    {
+                        $unwind: "$indikatory"
+                    },
+                    {
+                        $match: {
+                            "indikatory.indicator": "4355WZNP4AV"
+                        }
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            prumer: "$indikatory.prumer"
+                        }
+                    }
+                ],
+                as: "prumerData"
+            }
+        },
+        { $unwind: "$prumerData" },
+        {
+            $match: {
+                $expr: { $gt: ["$pocetDeti", "$prumerData.prumer"] }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                region: "$_id",
+                oblast: 1,
+                pocetDeti: 1,
+                prumer: { $round: ["$prumerData.prumer", 2] }
+            }
+        },
+        { $sort: { pocetDeti: -1 } }
+    ])
+
+### Dotaz 4
+
+Ukáže rok kdy byl nejmenší rozdíl mezi nadějí průměrným dožití mužů a žen.
+
+    db.prumery.aggregate([
+        {
+            $match: {
+                "nadeje.muži": { $exists: true },
+                "nadeje.ženy": { $exists: true },
+            }
+        },
+        {
+            $project: {
+                rok: 1,
+                rozdil: { $round: [{ $subtract: ["$nadeje.ženy", "$nadeje.muži"] }, 2] },
+                nadejeMuzi: "$nadeje.muži",
+                nadejeZeny: "$nadeje.ženy"
+            }
+        },
+        {
+            $sort: { rozdil: 1 }
+        },
+        {
+            $limit: 1
+        }
+    ])
+
+### Dotaz 5
+
+Ukáže všechny roky, ve kterých byl globální průměr plodnosti vyšší než 45 a zároveň průměrná naděje dožití žen přesáhla 33.75 let.
+
+    db.prumery.aggregate([
+        {
+            $match: {
+                globalniPrumerPlodnosti: { $exists: true, $gt: 45 }
+            }
+        },
+        {
+            $lookup: {
+                from: "prumery",
+                let: { rok: "$rok" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: { $eq: ["$rok", "$$rok"] },
+                            "nadeje.ženy": { $exists: true, $gt: 33.75 }
+                        }
+                    },
+                    {
+                        $project: { _id: 0, nadejeZeny: "$nadeje.ženy" }
+                    }
+                ],
+                as: "nadejeData"
+            }
+        },
+        { $unwind: "$nadejeData" },
+        {
+            $project: {
+                rok: 1,
+                globalniPrumerPlodnosti: 1,
+                nadejeZeny: "$nadejeData.nadejeZeny"
+            }
+        }
+    ]);
+
+### Dotaz 6
+
+Najde rok, ve kterém byl největší rozdíl mezi průměrným počtem živě narozených a mrtvě narozených dětí.
+
+    ```js
+    db.prumery.aggregate([
+        {
+            $match: {
+                indikatory: { $exists: true }
+            }
+        },
+        {
+            $project: {
+                rok: 1,
+                zive: {
+                    $let: {
+                        vars: {
+                            idx: { $indexOfArray: ["$indikatory.indicator", "4355ZN"] }
+                        },
+                        in: { $arrayElemAt: ["$indikatory.prumer", "$$idx"] }
+                    }
+                },
+                mrtve: {
+                    $let: {
+                        vars: {
+                            idx: { $indexOfArray: ["$indikatory.indicator", "4355MN"] }
+                        },
+                        in: { $arrayElemAt: ["$indikatory.prumer", "$$idx"] }
+                    }
+                }
+            }
+        },
+        {
+            $addFields: {
+                rozdil: { $abs: { $subtract: ["$zive", "$mrtve"] } }
+            }
+        },
+        { $sort: { rozdil: -1 } },
+        { $limit: 1 },
+        {
+            $project: {
+                _id: 0,
+                rok: 1,
+                zive: 1,
+                mrtve: 1,
+                rozdil: 1
+            }
+        }
+    ])
