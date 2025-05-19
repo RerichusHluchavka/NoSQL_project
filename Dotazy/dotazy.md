@@ -14,7 +14,8 @@ Dotazy většinou pracují s databází `mojedb` a kolekcemi `narozeni, plodnost
 Dotazy které pracují s daty (insert, update, delete, merge)
 
 ### Dotaz 1
-Přetypuje všechny hodnoty `IndicatorType` v kolekcích na string
+Přetypuje všechny hodnoty `IndicatorType` v kolekcích na string pomocí `updateMany` a `toString`. Následně ověří, že jsou hodnoty přetypovány na string pomocí `findOne`.:
+
 
     db.nadeje.updateMany(
         {},
@@ -54,7 +55,8 @@ Přetypuje všechny hodnoty `IndicatorType` v kolekcích na string
     db.narozeni.findOne({ IndicatorType: "4355" });
 
 ### Dotaz 2
-Vytvoří embedded dokument v nové kolekci `prumery` s průměrnou nadějí dožití mužů a žen pro každý rok
+Vytvoří embedded dokument v nové kolekci `prumery` s průměrnou nadějí dožití mužů a žen pro každý rok.
+Vyhledání a vypočítání průměru provede pomocí `aggregate` a vloží je do kolekce `prumery` pomocí `merge`. Následně ověří zda jsou data vložena do kolekce `prumery` pomocí `find`.
 
     db.nadeje.aggregate([
         {
@@ -110,7 +112,8 @@ Vytvoří embedded dokument v nové kolekci `prumery` s průměrnou nadějí do�
    
 ## Dotaz 3
 
-Vytvoří embedded dokument v kolekci `prumery`, který průměruje hodnoty z kolekce narozeni podle roku a jednotlivých ukazatelů
+Vytvoří embedded dokument v kolekci `prumery`, který průměruje hodnoty z kolekce narozeni podle roku a jednotlivých ukazatelů.
+Vyhledání a vypočítání průměru provede pomocí `aggregate` a vloží je do kolekce `prumery` pomocí `merge`. Následně ověří zda jsou data vložena do kolekce `prumery` pomocí `find`.
 
     db.narozeni.aggregate([
         {
@@ -154,7 +157,8 @@ Vytvoří embedded dokument v kolekci `prumery`, který průměruje hodnoty z ko
     db.prumery.find({ indikatory: { $exists: true } }).pretty()
 
 ## Dotaz 4
-Vytvoří embedded dokument v kolekci `prumery`, který průměruje hodnoty plodnosti podle věkových kategorií a roků:
+Vytvoří embedded dokument v kolekci `prumery`, který průměruje hodnoty plodnosti podle věkových kategorií a roků.
+Vyhledání a vypočítání průměru provede pomocí `aggregate` a vloží je do kolekce `prumery` pomocí `merge`. Následně ověří zda jsou data vložena do kolekce `prumery` pomocí `find`.
 
     db.plodnost.aggregate([
         {
@@ -202,7 +206,8 @@ Vytvoří embedded dokument v kolekci `prumery`, který průměruje hodnoty plod
 
 
 ## Dotaz 5
-Vloží globální průměry pro plodnost v jednotlivých rocích do kolekce `prumery`:
+Vloží globální průměry pro plodnost v jednotlivých rocích do kolekce `prumery`.
+Vyhledá a vypočítá průměr pomocí `aggregate` a vloží je do kolekce `prumery` pomocí `merge`. Následně ověří zda jsou data vložena do kolekce `prumery` pomocí `find`.
 
     db.prumery.aggregate([
         {
@@ -236,7 +241,9 @@ Vloží globální průměry pro plodnost v jednotlivých rocích do kolekce `pr
     ]);
 
 ## Dotaz 6
-Smaže z kolekce `prumery` dokumenty, kde je naděje dožití žen je větší než naděje mužů o více jak 3.8, a zobrazí data, která budou smazána:
+Smaže z kolekce `prumery` dokumenty, kde je naděje dožití žen je větší než naděje mužů o více jak 3.8, a zobrazí data, která budou smazána.
+Vytvoří konstantu `toDelete`, pro vysání dat, které budou smazány. Poté provede `deleteMany` pro smazání dokumentů, které splňují podmínku. Následně ověří zda jsou data smazána pomocí `find`.
+
 
 **! Data se budou používat v dalších dotazech, takže mazat pozdeji**
 
@@ -255,16 +262,12 @@ Smaže z kolekce `prumery` dokumenty, kde je naděje dožití žen je větší n
         $expr: { $gt: [ { $subtract: [ "$nadeje.ženy", "$nadeje.muži" ] }, 3.8] }
     });
 
-Pokud je struktura složitější (např. průměry jsou v embedded polích), je potřeba dotaz upravit podle konkrétního pole.
-
-
-db.prumery.find({ globalniPrumerPlodnosti: { $exists: true } }).pretty()
-
 ## Agregační funkce
 Dotazy které pracují s agregačními funkcemi
 
 ### Dotaz 1
 Spočítá průměrnou naději dožití žen mezi staré 30-35 let v letech 2015-2017 pro regiony CZ05 a CZ06 zaokrouhlenou na 2 desetinná místa. Výstup bude obsahovat region, rok, průměrnou naději dožití a počet záznamů.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `group` pro seskupení dat podle regionu a roku. Nakonec použije `project` pro výběr a zaokrouhlení výsledků.
 
 
     db.nadeje.aggregate([
@@ -296,6 +299,7 @@ Spočítá průměrnou naději dožití žen mezi staré 30-35 let v letech 2015
 
 ### Dotaz 2
 Spočítá průměrnou plodnost žen ve věku 20-40 let pro všechny kraje a ukáže 5 krajů s největší průměrnou plodností.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `group` pro seskupení dat podle regionu a průměrné plodnosti. Nakonec použije `sort` a `limit` pro seřazení a omezení výsledků na 5 krajů, které pomocí `project` zaokrouhlí na 2 desetinná místa.
 
     db.plodnost.aggregate([
         {
@@ -330,7 +334,10 @@ Spočítá průměrnou plodnost žen ve věku 20-40 let pro všechny kraje a uk�
 
 ### Dotaz 3
 
-Ukáže v jakých krajích je největší a nejmenší průměrný věk matky při porodu prvního dítěte a průměrný věk matky při porodu dítěte. Nepůjde pokud se předtímto dotazem nespstil dotak který přetypovává `IndicatorType` na string (případně je třeba změnit v dotazu IndicatorType: { $in: ["7406", "7406D1"] } -> IndicatorType: { $in: [7406, "7406D1"] }).
+Ukáže v jakých krajích je největší a nejmenší průměrný věk matky při porodu prvního dítěte a průměrný věk matky při porodu dítěte.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `group` pro seskupení dat podle regionu a průměrného věku matky při porodu. Nakonec použije `addFields` pro výpočet rozdílu mezi průměrným věkem matky při porodu prvního dítěte a průměrným věkem matky při porodu dítěte. Použije `sort` pro seřazení výsledků podle rozdílu a `facet` pro zobrazení největšího a nejmenšího rozdílu.
+
+ Nepůjde pokud se předtímto dotazem nespustil dotak který přetypovává `IndicatorType` na string (případně je třeba změnit v dotazu IndicatorType: { $in: ["7406", "7406D1"] } -> IndicatorType: { $in: [7406, "7406D1"] }).
 
     db.narozeni.aggregate([
         {
@@ -393,7 +400,10 @@ Ukáže v jakých krajích je největší a nejmenší průměrný věk matky p�
     ]);
 
 ### Dotaz 4
-Ukáže nadeji dožití (v roce 2023) věkové skupiny žen která má průměrně největší plodnost. Nepujde pokud se předtímto dotazem nespstil dotak který přetypovává `IndicatorType` na string (případně je třeba změnit v dotazu IndicatorType: "5406" -> IndicatorType: 5406).
+Ukáže nadeji dožití (v roce 2023) věkové skupiny žen která má průměrně největší plodnost.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `group` pro seskupení dat podle věkové skupiny a průměrné plodnosti. Nakonec použije `sort` a `limit` pro seřazení a omezení výsledků na 1 věkovou skupinu, která má největší průměrnou plodnost. Použije `lookup` pro připojení dat z kolekce `nadeje` a `unwind` pro rozbalení výsledků.
+
+ Nepujde pokud se předtímto dotazem nespstil dotak který přetypovává `IndicatorType` na string (případně je třeba změnit v dotazu IndicatorType: "5406" -> IndicatorType: 5406).
 
     db.plodnost.aggregate([
         {
@@ -453,7 +463,10 @@ Ukáže nadeji dožití (v roce 2023) věkové skupiny žen která má průměrn
     ]);
 
 ### Dotaz 5
-Ukáže naději dožití novorozenych kluků (0 roků) v roce 2020 pro region v regionech kde byl průměrný věk matky při porodu 29 a více. Nepujde pokud se předtímto dotazem nespstil dotak který přetypovává `IndicatorType` na string (případně je třeba změnit v dotazu IndicatorType: "7406" -> IndicatorType: 7406).
+Ukáže naději dožití novorozenych kluků (0 roků) v roce 2020 pro region v regionech kde byl průměrný věk matky při porodu 29 a více.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `group` pro seskupení dat podle regionu a průměrného věku matky při porodu. Nakonec použije `lookup` pro připojení dat z kolekce `nadeje` a `unwind` pro rozbalení výsledků.
+
+Nepujde pokud se předtímto dotazem nespstil dotak který přetypovává `IndicatorType` na string (případně je třeba změnit v dotazu IndicatorType: "7406" -> IndicatorType: 7406).
 
     db.narozeni.aggregate([
         {
@@ -511,7 +524,8 @@ Ukáže naději dožití novorozenych kluků (0 roků) v roce 2020 pro region v 
     ]);
 
 ### Dotaz 6
-Ukáže kraj kde je největší poměr mrtvě narozených dětí k živě narozeným dětem. 
+Ukáže kraj kde je největší poměr mrtvě narozených dětí k živě narozeným dětem.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `group` pro seskupení dat podle regionu a typu indikátoru. Nakonec použije `addFields` pro výpočet poměru mezi mrtvě narozenými a živě narozenými dětmi a `sort` pro seřazení výsledků podle poměru.
 
 
     db.narozeni.aggregate([
@@ -593,6 +607,7 @@ Dotazy které pracují s konfigurací databáze a kolekcí
 
 ### Dotaz 1
 Ukáže všechny kolekce v databázi `mojedb` a informace o nich.
+Vytvoří dotaz na kolekce v databázi `mojedb` a pomocí `stats` získá informace o počtu dokumentů, velikosti kolekce a indexech. Poté zobrazí informace o každé kolekci.
 
     db.getCollectionNames().forEach(function(collection) {
         var stats = db[collection].stats();
@@ -605,7 +620,8 @@ Ukáže všechny kolekce v databázi `mojedb` a informace o nich.
     });
 
 ### Dotaz 2
-Zobrazí rozdělení chunků s informacemi o hostitelských kontejnerech
+Zobrazí rozdělení chunků s informacemi o hostitelských kontejnerech.
+Vytvoří dotaz na kolekci `chunks` v databázi `config`, která obsahuje informace o shardingových chucích. Pomocí `$lookup` připojí informace o shardu a pomocí `$project` vybere potřebné informace.
 
     use config
 
@@ -630,6 +646,7 @@ Zobrazí rozdělení chunků s informacemi o hostitelských kontejnerech
 
 ### Dotaz 3
 Zobrazí informace o sharding klíčích a jejich indexech pro všechny kolekce v databázi `mojedb`.
+Vytvoří dotaz na kolekce v databázi `mojedb` a pomocí `getIndexes` získá informace o indexech. Poté zobrazí informace o každé kolekci, včetně sharding klíče a unikátnosti.
 
 
     use mojedb
@@ -652,6 +669,7 @@ Zobrazí informace o sharding klíčích a jejich indexech pro všechny kolekce 
 
 ### Dotaz 4
 Přidá sharding do kolekce `prumery` s velikostí chunku 1 MB a zobrazí informace o sharadovani.
+Vytvoří dotaz na kolekci `prumery` a pomocí `sh.shardCollection` přidá sharding. Poté zobrazí informace o shardingu.
 
 
     // Mělo by být už nastavené při inicializaci
@@ -671,12 +689,15 @@ Přidá sharding do kolekce `prumery` s velikostí chunku 1 MB a zobrazí inform
 
 
 ### Dotaz 5
-Simulace výpadku uzlu a kontrola stavu replikace.
+Simuluje výpadek sekundárního uzlu shardu a kontroluje stav replikace.
+
+
 1. Je potřeba se dostat do shardu
 
         docker-compose exec router01 mongosh "mongodb://admin:admin@shard01-b:27017/?replicaSet=rs-shard-01"
 
-2. V shardu pak lze testovat výpadek primárního uzlu a kontrolovat stav replikace.
+2. V shardu pak lze testovat výpadek primárního uzlu a kontrolovat stav replikace. Pomocí `db.shutdownServer` simulujeme výpadek sekundárního uzlu a pomocí `rs.status()` kontrolujeme stav replikace.
+
 
         use admin
 
@@ -699,6 +720,8 @@ Simulace výpadku uzlu a kontrola stavu replikace.
 
 ### Dotaz 6
 Znovu aktivace sekundárního uzlu a kontrola stavu replikace.
+
+
 1. Je potřeba znovu spustit sekundární uzel
 
         docker-compose restart shard01-a
@@ -706,7 +729,8 @@ Znovu aktivace sekundárního uzlu a kontrola stavu replikace.
 2. Připojit se do jineho než restartovaného shardu
         docker-compose exec router01 mongosh "mongodb://admin:admin@shard01-b:27017/?replicaSet=rs-shard-01"
 
-3. Rekonfigurace shardu a kontrola stavu replikace
+3. Rekonfigurace shardu a kontrola stavu replikace. Pomocí `rs.reconfig` znovu nakonfigurujeme shard a pomocí `rs.status()` zkontrolujeme stav replikace.
+
         rs.reconfig(
         {
             _id: "rs-shard-01",
@@ -733,7 +757,8 @@ Dotazy které pracují s nested (embedded) dokumenty
 
 ### Dotaz 1
 
-Ukáže detailní informace z kolekce `plodnost` pro záznamy z roku 2020, kde je hodnota větší než globální průměr plodnosti pro daný rok (z kolekce `prumery`):
+Ukáže detailní informace z kolekce `plodnost` pro záznamy z roku 2020, kde je hodnota větší než globální průměr plodnosti pro daný rok (z kolekce `prumery`).
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `lookup` pro připojení dat z kolekce `prumery` a `unwind` pro rozbalení výsledků a `match` pro filtrování podle podmínky. Nakonec použije `project` pro výběr výsledků.
 
     db.plodnost.aggregate([
         {
@@ -778,7 +803,8 @@ Ukáže detailní informace z kolekce `plodnost` pro záznamy z roku 2020, kde j
     ])
 
 ### Dotaz 2
-Ukáže první věkovou skupinu z každého kraje, kde je naděje dožití menší než globální průměrná naděje pro rok 2020 (z kolekce `prumery`):
+Ukáže první věkovou skupinu z každého kraje, kde je naděje dožití menší než globální průměrná naděje pro rok 2020 (z kolekce `prumery`).
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `lookup` pro připojení dat z kolekce `prumery` a `unwind` pro rozbalení výsledků a `match` pro filtrování podle podmínky. Nakonec použije `sort`, `group` a `project` pro výběr výsledků.
 
     db.nadeje.aggregate([
         {
@@ -833,7 +859,8 @@ Ukáže první věkovou skupinu z každého kraje, kde je naděje dožití menš
     ])
 
 ### Dotaz 3
-Ukáže v jakých krajích je v roce 2020 více narozených dětí s pořadím 4 a více než je průměr:
+Ukáže v jakých krajích je v roce 2020 více narozených dětí s pořadím 4 a více než je průměr.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `group` pro seskupení dat podle regionu a počtu dětí. Nakonec použije `lookup` pro připojení dat z kolekce `prumery` a `unwind` pro rozbalení výsledků a `match` pro filtrování podle podmínky. Nakonec použije `project` pro výběr a zaokrouhlení výsledků.
 
     db.narozeni.aggregate([
         {
@@ -900,6 +927,7 @@ Ukáže v jakých krajích je v roce 2020 více narozených dětí s pořadím 4
 ### Dotaz 4
 
 Ukáže rok kdy byl nejmenší rozdíl mezi nadějí průměrným dožití mužů a žen.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `project` pro výpočet rozdílu mezi nadějí dožití mužů a žen. Nakonec použije `sort` a `limit` pro seřazení a omezení výsledků na 1 rok.
 
     db.prumery.aggregate([
         {
@@ -927,6 +955,7 @@ Ukáže rok kdy byl nejmenší rozdíl mezi nadějí průměrným dožití muž�
 ### Dotaz 5
 
 Ukáže všechny roky, ve kterých byl globální průměr plodnosti vyšší než 45 a zároveň průměrná naděje dožití žen přesáhla 33.75 let.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `lookup` pro připojení dat z kolekce `prumery` a `unwind` pro rozbalení výsledků. Nakonec použije `project` pro výběr výsledků.
 
     db.prumery.aggregate([
         {
@@ -965,6 +994,7 @@ Ukáže všechny roky, ve kterých byl globální průměr plodnosti vyšší ne
 ### Dotaz 6
 
 Najde rok, ve kterém byl největší rozdíl mezi průměrným počtem živě narozených a mrtvě narozených dětí.
+Vyhledává pomocí `aggregate` a `match` pro filtrování dat. Poté použije `project` pro výpočet rozdílu mezi průměrným počtem živě narozených a mrtvě narozených dětí. Nakonec použije `sort` a `limit` pro seřazení a omezení výsledků na 1 rok.
 
     db.prumery.aggregate([
         {
@@ -1015,7 +1045,8 @@ Najde rok, ve kterém byl největší rozdíl mezi průměrným počtem živě n
 Dotazy které pracují s indexy
 
 ### Dotaz 1
-Vytvoří složený částečný index na kolekci `narozeni`, který indexuje pole `Roky` a `IndicatorType` pouze pro dokumenty, kde je `Roky` větší nebo rovno 2018 a vypíše všechny indexy v kolekci `narozeni`:
+Vytvoří složený částečný index na kolekci `narozeni`, který indexuje pole `Roky` a `IndicatorType` pouze pro dokumenty, kde je `Roky` větší nebo rovno 2018 a vypíše všechny indexy v kolekci `narozeni`.
+Vytvoří dotaz na kolekci `narozeni` a pomocí `createIndex` vytvoří index. Poté zobrazí informace o všech indexech v kolekci.
 
     db.narozeni.createIndex(
         { Roky: 1, IndicatorType: 1 },
@@ -1030,7 +1061,8 @@ Vytvoří složený částečný index na kolekci `narozeni`, který indexuje po
 
 
 ### Dotaz 2
-Dotazy pro porovnání výkonu podobných dotazů s a bez indexu:
+Dotazy pro porovnání výkonu podobných dotazů s a bez indexu.
+Vytvoří dva vyhledávací dotazy na kolekci `narozeni`, jeden s používá nově vytvořený indexu a druhý ne. Poté zobrazí statistiky výkonu pro oba dotazy.
 
     db.narozeni.aggregate([
         {
@@ -1080,7 +1112,8 @@ Vytvoří index na kolekci `nadeje` pro pole `Roky` a `Pohlaví`, index pojmenuj
 
 
 ### Dotaz 4
-Využije index `IndexNadejeRokPohlavi` při dotazu na průměrnou naději dožití žen v letech 2018–2022 a zobrazí statistiky využití indexu:
+Využije index `IndexNadejeRokPohlavi` při dotazu na průměrnou naději dožití žen v letech 2018–2022 a zobrazí statistiky využití indexu.
+Vytvoří dva vyhledávací dotazy na kolekci `nadeje`, jeden využívá nově vytvořený index a druhý ne. Poté zobrazí statistiky výkonu pro oba dotazy.
 
 db.nadeje.aggregate([
     {
@@ -1110,7 +1143,8 @@ Vytvoří index na kolekci `plodnost` pro pole `Roky` a `Věk (jednoleté skupin
 
 ### Dotaz 6
 
-Využije index `IndexPlodnostRokVek` při dotazu na průměrnou plodnost žen ve věku 25–35 let v letech 2015–2020 a zobrazí statistiky využití indexu:
+Využije index `IndexPlodnostRokVek` při dotazu na průměrnou plodnost žen ve věku 25–35 let v letech 2015–2020 a zobrazí statistiky využití indexu.
+Vytvoří dva vyhledávací dotazy na kolekci `plodnost`, jeden využívá nově vytvořený index a druhý ne. Poté zobrazí statistiky výkonu pro oba dotazy.
 
     db.plodnost.aggregate([
         {
